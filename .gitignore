@@ -1,0 +1,21 @@
+# Haskell compilation artifacts
+*.hi
+*.o
+
+*.exe
+
+# Cabal build artifacts
+dist/
+dist-newstyle/
+cabal.sandbox.config
+cabal.project.local
+*.prof
+*.aux
+*.hpc/
+
+# Stack build artifacts
+.stack-work/
+
+# GHCi REPL files
+.ghc.environment.*
+ghci-history
