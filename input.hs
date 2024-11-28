@@ -1,4 +1,4 @@
-module Main where
+module Input where
 
 import Data.Char (toUpper)
 

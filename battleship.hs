@@ -3,7 +3,10 @@ module Main where
 import System.Random (randomRIO)
 import Control.Monad (foldM)
 
-type Board = [[Char]]
+type Board = [[Square]]
+
+data Square = Water | Ship | Hit | Miss
+    deriving (Eq, Show)
 
 boardSize :: Int
 boardSize = 10
@@ -12,59 +15,67 @@ ships :: [Int]
 ships = [5, 4, 3, 3, 2]
 
 createBoard :: Int -> Board
-createBoard size = replicate size (replicate size '~')
+createBoard size = replicate size (replicate size Water)
 
-placeShips :: Board -> IO Board
-placeShips board = foldM placeShip board ships
+-- Ship placement stuff
+placeShip :: Board -> [(Int, Int)] -> Board
+placeShip = foldl (\b (row, col) -> updateBoard b row col Ship)
 
-placeShip :: Board -> Int -> IO Board
-placeShip board shipLength = do
-    let positions = [(row, col) | row <- [0..boardSize-1], col <- [0..boardSize-1]]
-    direction <- randomDirection
-    tryPlaceShip board shipLength direction positions
+placeShips :: Board -> [Int] -> IO Board
+placeShips = foldM placeRandomShip
 
-randomDirection :: IO Bool
-randomDirection = randomRIO (True, False) -- True = horizontal, False = vertical
+placeRandomShip :: Board -> Int -> IO Board
+placeRandomShip board length = do
+    dir <- randomRIO (True, False)  -- True = Horizontal, False = Vertical
+    row <- randomRIO (0, 9)
+    col <- randomRIO (0, 9)
+    let positions = shipPositions row col length dir
+    if isValidPlacement board positions
+        then return (placeShip board positions)
+        else placeRandomShip board length  -- Retry if invalid
 
-tryPlaceShip :: Board -> Int -> Bool -> [(Int, Int)] -> IO Board
-tryPlaceShip board shipLength horizontal positions = do
-    start <- randomRIO (0, length positions - 1)
-    let (row, col) = positions !! start
-    if canPlaceShip board shipLength horizontal (row, col)
-        then return $ placeShipOnBoard board shipLength horizontal (row, col)
-        else tryPlaceShip board shipLength horizontal positions
+isValidPlacement :: Board -> [(Int, Int)] -> Bool
+isValidPlacement board = all (\(row, col) -> inBounds row col && board !! row !! col == Water)
 
-canPlaceShip :: Board -> Int -> Bool -> (Int, Int) -> Bool
-canPlaceShip board shipLength horizontal (row, col)
-    | horizontal = col + shipLength <= boardSize && all (isWater row) [col..col+shipLength-1]
-    | otherwise  = row + shipLength <= boardSize && all (`isWater` col) [row..row+shipLength-1]
-  where
-    isWater r c = board !! r !! c == '~'
+inBounds :: Int -> Int -> Bool
+inBounds row col = row >= 0 && row < 10 && col >= 0 && col < 10
 
-placeShipOnBoard :: Board -> Int -> Bool -> (Int, Int) -> Board
-placeShipOnBoard board shipLength horizontal (row, col)
-    | horizontal = foldl (\b c -> updateBoard b row c 'S') board [col..col+shipLength-1]
-    | otherwise  = foldl (\b r -> updateBoard b r col 'S') board [row..row+shipLength-1]
+shipPositions :: Int -> Int -> Int -> Bool -> [(Int, Int)]
+shipPositions row col length isHorizontal =
+    if isHorizontal
+        then [(row, col + i) | i <- [0..length-1]]
+        else [(row + i, col) | i <- [0..length-1]]
 
-updateBoard :: Board -> Int -> Int -> Char -> Board
+-- 
+
+updateBoard :: Board -> Int -> Int -> Square -> Board
 updateBoard board row col val =
-    take row board ++ [take col (board !! row) ++ [val] ++ drop (col + 1) (board !! row)] ++ drop (row + 1) board
+    take row board ++
+    [take col (board !! row) ++ [val] ++ drop (col + 1) (board !! row)] ++
+    drop (row + 1) board
 
+-- Print related stuff
 printBoard :: Board -> IO ()
 printBoard board = do
     putStrLn "  A B C D E F G H I J"
     mapM_ printRow (zip [1..] board)
 
-printRow :: (Int, [Char]) -> IO ()
+printRow :: (Int, [Square]) -> IO ()
 printRow (rowNum, row) = do
-    -- align rows
     let label = if rowNum < 10 then " " ++ show rowNum else show rowNum
     putStr (label ++ " ")
-    putStrLn (unwords (map (:[]) row))
+    putStrLn (unwords (map showSquare row))
 
--- Main function to test ship placement
+showSquare :: Square -> String
+showSquare Water = "~"
+showSquare Ship  = "#"
+showSquare Hit   = "X"
+showSquare Miss  = "O"
+
+--
+
 main :: IO ()
 main = do
-    let board = createBoard boardSize
-    finalBoard <- placeShips board
-    printBoard finalBoard
+    let emptyBoard = createBoard 10
+    boardWithShips <- placeShips emptyBoard [5, 4, 3, 3, 2]
+    printBoard boardWithShips
