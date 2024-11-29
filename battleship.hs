@@ -41,10 +41,8 @@ showHiddenSquare Miss  = "O"
 
 main :: IO ()
 main = do
-    -- Create empty boards
     let emptyBoard = createBoard 10
     
-    -- Place ships for both players
     playerBoard <- placeShips emptyBoard [5, 4, 3, 3, 2]
     computerBoard <- placeShips emptyBoard [5, 4, 3, 3, 2]
     
@@ -61,5 +59,4 @@ main = do
             putStrLn "Computer Board:"
             printHiddenBoard computerBoard
     
-    -- Proceed to game loop (to be implemented)
     putStrLn "Game setup complete! BATTLE SHIP!"
