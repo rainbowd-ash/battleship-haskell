@@ -1,6 +1,10 @@
 module Main where
 
+import System.Random
+
 import Setup
+import GameLogic
+import Input
 
 debug :: Bool
 debug = False
@@ -39,6 +43,14 @@ showHiddenSquare Miss  = "O"
 
 --
 
+-- Generate a random coordinate that hasn't been shot before
+randomCoordinate :: Board -> IO (Maybe (Int, Int))
+randomCoordinate board = do
+    row <- randomRIO (0, 9)
+    col <- randomRIO (0, 9)
+    let coord = (row, col)
+    return (Just coord)
+
 main :: IO ()
 main = do
     let emptyBoard = createBoard 10
@@ -46,17 +58,54 @@ main = do
     playerBoard <- placeShips emptyBoard [5, 4, 3, 3, 2]
     computerBoard <- placeShips emptyBoard [5, 4, 3, 3, 2]
     
-    -- Display boards based on debug mode
-    if debug
-        then do
-            putStrLn "Player Board (Debug Mode):"
-            printBoard playerBoard
-            putStrLn "Computer Board (Debug Mode):"
-            printBoard computerBoard
-        else do
-            putStrLn "Player Board:"
-            printBoard playerBoard
-            putStrLn "Computer Board:"
-            printHiddenBoard computerBoard
+    let initialPlayerGameState = GameState playerBoard []
+        initialComputerGameState = GameState computerBoard []
     
     putStrLn "Game setup complete! BATTLE SHIP!"
+    
+    gameLoop initialPlayerGameState initialComputerGameState
+    
+
+gameLoop :: GameState -> GameState -> IO ()
+gameLoop playerState computerState = do
+
+    putStrLn "\nYour Board:"
+    printBoard (board playerState)
+    putStrLn "\nComputer's Board:"
+    printHiddenBoard (board computerState)
+    
+    -- Player's turn
+    putStrLn "Your turn! Enter coordinates:"
+    input <- getLine
+    case parseCleanInput input of
+        Nothing -> do
+            putStrLn "Invalid input. Please enter a valid coordinate in the form of 'B 10'"
+            gameLoop playerState computerState
+        Just coord -> do
+            case validateShot computerState coord of
+                Nothing -> do
+                    putStrLn "You've already shot at this square. Try again."
+                    gameLoop playerState computerState
+                Just validCoord -> do
+                    (updatedComputerState, shotResult) <- processShot computerState (Just validCoord)
+                    case shotResult of
+                        Just Hit  -> putStrLn "Hit!"
+                        Just Miss -> putStrLn "Miss!"
+                        Nothing   -> putStrLn "Something went wrong."
+                    
+                    -- Check if game is over
+                    if isGameOver (board updatedComputerState)
+                        then putStrLn "Congratulations! You sunk all the computer's ships!"
+                        else do
+                            -- Computer's turn (simplified random shot)
+                            computerCoord <- randomCoordinate (board playerState)
+                            (updatedPlayerState, computerShotResult) <- processShot playerState computerCoord
+                            case computerShotResult of
+                                Just Hit  -> putStrLn "Computer hit your ship!"
+                                Just Miss -> putStrLn "Computer missed."
+                                Nothing   -> putStrLn "Something went wrong."
+                            
+                            -- Check if game is over
+                            if isGameOver (board updatedPlayerState)
+                                then putStrLn "Game over! Computer sunk all your ships."
+                                else gameLoop updatedPlayerState updatedComputerState

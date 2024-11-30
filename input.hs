@@ -24,6 +24,14 @@ isValidRow r = r >= 1 && r <= 10
 columnToIndex :: Char -> Int
 columnToIndex c = fromEnum c - fromEnum 'A'
 
+-- Clean input by removing leading/trailing whitespace and converting to uppercase
+cleanInput :: String -> String
+cleanInput = unwords . words . map toUpper
+
+-- Wrapper function for parsing input that handles cleaning
+parseCleanInput :: String -> Maybe (Int, Int)
+parseCleanInput = parseInput . cleanInput
+
 -- Test function to read input and parse it
 main :: IO ()
 main = do
